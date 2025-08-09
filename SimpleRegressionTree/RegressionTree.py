@@ -1,25 +1,37 @@
 import numpy as np
-import matplotlib.pyplot as plt
-
 
 class RegressionTree:
 
-    def __init__(self):
+    def __init__(self, max_depth=None, min_samples_split=2):
         self.__tree = {}
+        self.__max_depth = max_depth
+        self.__min_samples_split = min_samples_split
 
-    def fit(self, X, Y, max_depth=None):
-        if X.shape == (len(X),):
-            X = X.reshape(len(X), 1)
+    def fit(self, X, Y):
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
         self.__tree = {}
-        self.__build_tree(X, Y, self.__tree, max_depth)
+        self.__build_tree(X, Y, self.__tree, self.__max_depth)
 
     def predict(self, X):
-        if X.shape == (len(X),):
-            X = X.reshape(len(X), 1)
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
         preds = []
         for x in X:
             preds.append(self.__search(self.__tree, x))
         return preds
+
+    def get_depth(self):
+        return self.__calc_depth(self.__tree)
+
+    def get_tree(self):
+        return self.__tree
+
+    def __calc_depth(self, tree):
+        if 'value' in tree:
+            return 0
+        return 1 + max(self.__calc_depth(tree['left']), self.__calc_depth(tree['right']))
+
 
     def __search(self, tree, x):
         if 'value' in tree:
@@ -30,7 +42,7 @@ class RegressionTree:
             return self.__search(tree['right'], x)
 
     def __build_tree(self, X, Y, tree, max_depth):
-        if len(X) < 2 or max_depth == 0 or np.all(Y == Y[0]):
+        if len(X) < self.__min_samples_split or max_depth == 0 or np.all(Y == Y[0]):
             tree['value'] = np.mean(Y)
             return
 
@@ -39,7 +51,10 @@ class RegressionTree:
         best_j = None
 
         for j in range(X.shape[1]):
-            for t in X[:, j]:
+            unique_values = np.unique(X[:, j])
+            if len(unique_values) > 100:
+                unique_values = np.random.choice(unique_values, size=100, replace=False)
+            for t in unique_values:
                 left_mask = X[:, j] <= t
                 right_mask = X[:, j] > t
 
@@ -83,51 +98,3 @@ class RegressionTree:
         impurity_r = self.__squared_impurity(y_right)
         impurity_p = self.__squared_impurity(y_parent)
         return impurity_p - len(y_left) / N * impurity_l - len(y_right) / N * impurity_r
-
-
-X_data = np.arange(-5, 5, 0.1)
-Y_data = X_data ** 2
-
-fig, ax = plt.subplots(2, 2)
-fig.canvas.manager.set_window_title('Quadratic function')
-count_1 = 0
-count_2 = 0
-for depth in range(2, 9, 2):
-    model = RegressionTree()
-    model.fit(X_data, Y_data, max_depth=depth)
-    predict = model.predict(X_data)
-
-    ax[count_2][count_1].set_title(f'max depth = {depth}')
-    ax[count_2][count_1].plot(X_data, Y_data, color='g')
-    ax[count_2][count_1].plot(X_data, predict, color='r')
-    count_1 += 1
-    if count_1 == 2:
-        count_1 = 0
-        count_2 += 1
-
-plt.tight_layout()
-
-# Cosine function
-X_data = np.arange(-5, 5, 0.1)
-Y_data = np.cos(X_data)
-
-fig2, ax2 = plt.subplots(2, 2)
-fig2.canvas.manager.set_window_title('Cosine function')
-count_1 = 0
-count_2 = 0
-for depth in range(2, 9, 2):
-    model = RegressionTree()
-    model.fit(X_data, Y_data, max_depth=depth)
-    predict = model.predict(X_data)
-
-    ax2[count_2][count_1].set_title(f'max depth = {depth}')
-    ax2[count_2][count_1].plot(X_data, Y_data, color='g')
-    ax2[count_2][count_1].plot(X_data, predict, color='r')
-    count_1 += 1
-    if count_1 == 2:
-        count_1 = 0
-        count_2 += 1
-
-
-plt.tight_layout()
-plt.show()
