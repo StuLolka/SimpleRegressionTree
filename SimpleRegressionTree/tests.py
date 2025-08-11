@@ -61,7 +61,7 @@ def test_noisy_data():
     sklearn_preds = sklearn_tree.predict(X)
     sklearn_mse = mean_squared_error(Y, sklearn_preds)
     print(f'mse_tree = {mse_tree}, sklearn_mse = {sklearn_mse}')
-    assert np.isclose(mse_tree, sklearn_mse, rtol=0.13)
+    assert np.isclose(mse_tree, sklearn_mse, rtol=0.01)
 
 def test_1d_vs_2d_input():
     X_1d = np.array([1, 2, 3])
@@ -115,6 +115,6 @@ def test_compare_to_sklearn():
     sklearn_preds = sklearn_tree.predict(X)
     sklearn_mse = mean_squared_error(y, sklearn_preds)
 
-    assert np.isclose(mse, sklearn_mse, rtol=0.15)
+    assert np.isclose(mse, sklearn_mse, rtol=0.01)
 
 

@@ -1,7 +1,8 @@
 import numpy as np
 import sys
 import os
-# Добавляем папку Tree в PYTHONPATH
+from sklearn.tree import DecisionTreeRegressor
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from SimpleRegressionTree.RegressionTree import RegressionTree
 

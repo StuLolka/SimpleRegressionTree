@@ -1,100 +1,91 @@
 import numpy as np
 
 class RegressionTree:
-
     def __init__(self, max_depth=None, min_samples_split=2):
         self.__tree = {}
         self.__max_depth = max_depth
         self.__min_samples_split = min_samples_split
 
     def fit(self, X, Y):
+        X = np.array(X)
+        Y = np.array(Y)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
-        self.__tree = {}
-        self.__build_tree(X, Y, self.__tree, self.__max_depth)
+        self.__tree = self.__build_tree(X, Y, depth=0)
 
     def predict(self, X):
+        X = np.array(X)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
-        preds = []
-        for x in X:
-            preds.append(self.__search(self.__tree, x))
-        return preds
+        return np.array([self.__predict_one(row, self.__tree) for row in X])
 
     def get_depth(self):
         return self.__calc_depth(self.__tree)
-
-    def get_tree(self):
-        return self.__tree
 
     def __calc_depth(self, tree):
         if 'value' in tree:
             return 0
         return 1 + max(self.__calc_depth(tree['left']), self.__calc_depth(tree['right']))
 
-
-    def __search(self, tree, x):
+    def __predict_one(self, x, tree):
         if 'value' in tree:
             return tree['value']
-        if x[tree['feature']] <= tree['t']:
-            return self.__search(tree['left'], x)
+        if x[tree['feature']] <= tree['threshold']:
+            return self.__predict_one(x, tree['left'])
         else:
-            return self.__search(tree['right'], x)
+            return self.__predict_one(x, tree['right'])
 
-    def __build_tree(self, X, Y, tree, max_depth):
-        if len(X) < self.__min_samples_split or max_depth == 0 or np.all(Y == Y[0]):
-            tree['value'] = np.mean(Y)
-            return
+    def __build_tree(self, X, Y, depth):
+        n_samples, n_features = X.shape
+        if (self.__max_depth is not None and depth >= self.__max_depth) or \
+                n_samples < self.__min_samples_split or \
+                np.all(Y == Y[0]):
+            return {'value': np.mean(Y)}
 
-        best_impurity = -1
-        best_t = None
-        best_j = None
+        SS_parent = self.__squared_error(Y)
 
-        for j in range(X.shape[1]):
-            unique_values = np.unique(X[:, j])
-            if len(unique_values) > 100:
-                unique_values = np.random.choice(unique_values, size=100, replace=False)
-            for t in unique_values:
-                left_mask = X[:, j] <= t
-                right_mask = X[:, j] > t
+        best_feature = None
+        best_threshold = None
+        best_score = -np.inf
 
-                if np.sum(left_mask) == 0 or np.sum(right_mask) == 0:
+        for feature_idx in range(n_features):
+            sorted_idx = np.argsort(X[:, feature_idx])
+            X_feat = X[sorted_idx, feature_idx]
+            Y_sorted = Y[sorted_idx]
+
+            # thresholds = midpoints between consecutive unique values
+            mids = (X_feat[:-1] + X_feat[1:]) / 2
+            mask = X_feat[:-1] != X_feat[1:]
+            thresholds = mids[mask]
+
+            for threshold in thresholds:
+                left_mask = X_feat <= threshold
+                right_mask = ~left_mask
+                if left_mask.sum() == 0 or right_mask.sum() == 0:
                     continue
 
-                y_left = Y[left_mask]
-                y_right = Y[right_mask]
-                impurity = self.__square_impurity(Y, y_left, y_right)
+                SS_left = self.__squared_error(Y_sorted[left_mask])
+                SS_right = self.__squared_error(Y_sorted[right_mask])
+                score = SS_parent - SS_left - SS_right
 
-                if impurity > best_impurity:
-                    best_impurity = impurity
-                    best_t = t
-                    best_j = j
+                if score > best_score:
+                    best_score = score
+                    best_feature = feature_idx
+                    best_threshold = threshold
 
-        if best_j is None:
-            tree['value'] = np.mean(Y)
-            return
+        if best_feature is None:
+            return {'value': np.mean(Y)}
 
-        tree['t'] = best_t
-        tree['feature'] = best_j
-        tree['left'] = {}
-        tree['right'] = {}
+        left_mask_global = X[:, best_feature] <= best_threshold
+        right_mask_global = ~left_mask_global
 
-        if max_depth is not None:
-            max_depth -= 1
+        return {
+            'feature': best_feature,
+            'threshold': best_threshold,
+            'left': self.__build_tree(X[left_mask_global], Y[left_mask_global], depth + 1),
+            'right': self.__build_tree(X[right_mask_global], Y[right_mask_global], depth + 1)
+        }
 
-        left_mask = X[:, best_j] <= best_t
-        right_mask = X[:, best_j] > best_t
-
-        self.__build_tree(X[left_mask], Y[left_mask], tree['left'], max_depth)
-        self.__build_tree(X[right_mask], Y[right_mask], tree['right'], max_depth)
-
-    def __squared_impurity(self, y):
-        # Same as: np.sum((y - np.mean(y)) ** 2)
+    def __squared_error(self, y):
+        # Sum of squared deviations (SSE)
         return np.var(y) * len(y)
-
-    def __square_impurity(self, y_parent, y_left, y_right):
-        N = len(y_parent)
-        impurity_l = self.__squared_impurity(y_left)
-        impurity_r = self.__squared_impurity(y_right)
-        impurity_p = self.__squared_impurity(y_parent)
-        return impurity_p - len(y_left) / N * impurity_l - len(y_right) / N * impurity_r
