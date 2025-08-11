@@ -1,4 +1,4 @@
-# 🌳 RegressionTree – Simple Regression Decision Tree from Scratch
+# 🌳 RegressionTree – Simple Regression Decision Tree + Random Forest from Scratch
 This project implements a regression decision tree from scratch using only NumPy.
 It can approximate nonlinear functions like quadratic and cosine using piecewise constant regression.
 
